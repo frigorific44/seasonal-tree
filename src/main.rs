@@ -41,7 +41,7 @@ impl BoundaryNode {
             point: new_point,
             size: new_size,
             length: self.length,
-            angle: new_angle + rng.random_range(-0.2..0.2),
+            angle: new_angle + rng.random_range(-0.4..0.4),
         })
     }
 }
@@ -56,7 +56,7 @@ fn view(app: &App, _model: &Model) {
     let root = BoundaryNode {
         point: pt2(rng.random_range(win.left()..win.right()), win.bottom()),
         size: 32.0,
-        length: 20.0,
+        length: 40.0,
         angle: PI / 2.0,
     };
     let mut boundary: VecDeque<BoundaryNode> = VecDeque::new();
@@ -89,7 +89,7 @@ fn view(app: &App, _model: &Model) {
     for branch in branches {
         let points = branch.iter().map(|node| node.point);
         // draw.polyline().weight(1.0).points(points)
-        draw.polyline().weight(1.0).points(points).color(RED);
+        draw.polyline().weight(5.0).points(points).color(RED);
     }
     draw.background().color(PLUM);
 }
