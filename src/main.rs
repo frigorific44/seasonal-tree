@@ -74,22 +74,31 @@ fn view(app: &App, _model: &Model) {
         let mut branch: Vec<BoundaryNode> = Vec::new();
         // Branch generation.
         loop {
-            // let next = curr.grow();
             let next = match curr.grow(&mut rng) {
                 Some(x) => x,
                 None => break,
             };
             branch.push(curr);
             curr = next;
-            // branch.push(tree_node(next_point, size))
         }
 
         branches.push(branch);
     }
     for branch in branches {
-        let points = branch.iter().map(|node| node.point);
+        if branch.len() < 2 {
+            continue;
+        }
+        let mut points: VecDeque<Vec2> = VecDeque::new();
+
+        for w in branch.windows(2) {
+            let offset = Vec2::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
+            points.push_front(w[1].point + (offset * w[1].size));
+            points.push_back(w[1].point + (offset * w[1].size * -1.0));
+        }
+        // let points = branch.iter().map(|node| node.point);
         // draw.polyline().weight(1.0).points(points)
-        draw.polyline().weight(5.0).points(points).color(RED);
+        draw.polygon().color(YELLOW).points(points);
+        // draw.polyline().weight(5.0).points(points).color(RED);
     }
     draw.background().color(PLUM);
 }
