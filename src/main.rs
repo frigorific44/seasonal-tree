@@ -16,14 +16,15 @@ struct Model {
     random_seed: u64,
     background: Srgba,
     tree: Srgba,
+    shadow: Srgba,
     // leaves: Srgba,
-    // shadow: Srgba,
 }
 
 struct ModelBuilder {
     random_seed: Option<u64>,
     background: Option<Srgba>,
     tree: Option<Srgba>,
+    shadow: Option<Srgba>,
 }
 
 impl ModelBuilder {
@@ -32,6 +33,7 @@ impl ModelBuilder {
             random_seed: None,
             background: None,
             tree: None,
+            shadow: None,
         }
     }
 
@@ -60,11 +62,21 @@ impl ModelBuilder {
         self
     }
 
+    fn shadow(mut self, shadow: Option<String>) -> Self {
+        if let Some(color) = shadow {
+            if let Ok(shadow) = Srgba::hex(color) {
+                self.shadow = Some(shadow);
+            }
+        }
+        self
+    }
+
     fn build(self) -> Model {
         Model {
             random_seed: self.random_seed.unwrap_or((random_f32() * 100000.0) as u64),
             background: self.background.unwrap_or(Srgba::hex("#75d3e8").unwrap()),
             tree: self.tree.unwrap_or(Srgba::hex("#ffffff").unwrap()),
+            shadow: self.tree.unwrap_or(Srgba::hex("#3c84ac").unwrap()),
         }
     }
 }
@@ -75,8 +87,9 @@ fn model(app: &App) -> Model {
     let _window = app.new_window().view(view).build();
     ModelBuilder::new()
         .random_seed(args.seed)
-        .background(args.background)
+        .background(args.bg)
         .tree(args.tree)
+        .shadow(args.shadow)
         .build()
 }
 
@@ -86,10 +99,12 @@ struct Cli {
     config: Option<std::path::PathBuf>,
     #[arg(short, long)]
     seed: Option<u64>,
-    #[arg(short, long)]
-    background: Option<String>,
-    #[arg(short, long)]
+    #[arg(long)]
+    bg: Option<String>,
+    #[arg(long)]
     tree: Option<String>,
+    #[arg(long)]
+    shadow: Option<String>,
 }
 
 struct BoundaryNode {
@@ -103,7 +118,7 @@ impl BoundaryNode {
     fn grow(&self, rng: &mut StdRng) -> Option<BoundaryNode> {
         let new_point = (Vec2::from_angle(self.angle) * self.length) + self.point;
         let new_size = self.size - 1.0;
-        if new_size < 10.0 {
+        if new_size < 5.0 {
             return None;
         }
         let new_angle = self.angle;
@@ -117,6 +132,22 @@ impl BoundaryNode {
 }
 
 fn update(_app: &App, _model: &mut Model) {}
+
+fn branch_points(branch: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Vec2> {
+    let mut points: VecDeque<Vec2> = VecDeque::new();
+
+    if let Some(start) = branch.first() {
+        let shell = Vec2::from_angle(start.angle + (PI / 2.0)).normalize();
+        points.push_front(start.point + (shell * (start.size + offset)));
+        points.push_back(start.point + (shell * (start.size + offset) * -1.0));
+    }
+    for w in branch.windows(2) {
+        let shell = Vec2::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
+        points.push_front(w[1].point + (shell * (w[1].size + offset)));
+        points.push_back(w[1].point + (shell * (w[1].size + offset) * -1.0));
+    }
+    points
+}
 
 fn view(app: &App, _model: &Model) {
     let win = app.window_rect();
@@ -158,22 +189,13 @@ fn view(app: &App, _model: &Model) {
         if branch.len() < 2 {
             continue;
         }
-        let mut points: VecDeque<Vec2> = VecDeque::new();
-
-        if let Some(start) = branch.first() {
-            let offset = Vec2::from_angle(start.angle + (PI / 2.0)).normalize();
-            points.push_front(start.point + (offset * start.size));
-            points.push_back(start.point + (offset * start.size * -1.0));
-        }
-        for w in branch.windows(2) {
-            let offset = Vec2::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
-            points.push_front(w[1].point + (offset * w[1].size));
-            points.push_back(w[1].point + (offset * w[1].size * -1.0));
-        }
-        // let points = branch.iter().map(|node| node.point);
-        // draw.polyline().weight(1.0).points(points)
-        draw.polygon().color(_model.tree).points(points);
-        // draw.polyline().weight(5.0).points(points).color(RED);
+        draw.translate(pt3(5.0, -5.0, 0.0))
+            .polygon()
+            .color(_model.shadow)
+            .points(branch_points(&branch, 0.0));
+        draw.polygon()
+            .color(_model.tree)
+            .points(branch_points(&branch, 0.0));
         // Shadow
         // Shadow with transparency
         // Stepped shadows
