@@ -160,6 +160,11 @@ fn view(app: &App, _model: &Model) {
         }
         let mut points: VecDeque<Vec2> = VecDeque::new();
 
+        if let Some(start) = branch.first() {
+            let offset = Vec2::from_angle(start.angle + (PI / 2.0)).normalize();
+            points.push_front(start.point + (offset * start.size));
+            points.push_back(start.point + (offset * start.size * -1.0));
+        }
         for w in branch.windows(2) {
             let offset = Vec2::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
             points.push_front(w[1].point + (offset * w[1].size));
