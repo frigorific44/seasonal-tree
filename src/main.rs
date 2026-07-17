@@ -1,24 +1,95 @@
 use std::collections::VecDeque;
 
+use clap::Parser;
 use nannou::prelude::*;
 use nannou::rand::rngs::StdRng;
 use nannou::rand::{RngExt, SeedableRng};
 
+// TODO: Config with TOML.
 fn main() {
     nannou::app(model).update(update).run();
 }
 
+#[derive(Debug)]
 struct Model {
-    _window: Entity,
+    // _window: Entity,
     random_seed: u64,
+    background: Srgba,
+    tree: Srgba,
+    // leaves: Srgba,
+    // shadow: Srgba,
+}
+
+struct ModelBuilder {
+    random_seed: Option<u64>,
+    background: Option<Srgba>,
+    tree: Option<Srgba>,
+}
+
+impl ModelBuilder {
+    fn new() -> Self {
+        Self {
+            random_seed: None,
+            background: None,
+            tree: None,
+        }
+    }
+
+    fn random_seed(mut self, random_seed: Option<u64>) -> Self {
+        if let Some(seed) = random_seed {
+            self.random_seed = Some(seed);
+        }
+        self
+    }
+
+    fn background(mut self, background: Option<String>) -> Self {
+        if let Some(color) = background {
+            if let Ok(background) = Srgba::hex(color) {
+                self.background = Some(background);
+            }
+        }
+        self
+    }
+
+    fn tree(mut self, tree: Option<String>) -> Self {
+        if let Some(color) = tree {
+            if let Ok(tree) = Srgba::hex(color) {
+                self.tree = Some(tree);
+            }
+        }
+        self
+    }
+
+    fn build(self) -> Model {
+        Model {
+            random_seed: self.random_seed.unwrap_or((random_f32() * 100000.0) as u64),
+            background: self.background.unwrap_or(Srgba::hex("#75d3e8").unwrap()),
+            tree: self.tree.unwrap_or(Srgba::hex("#ffffff").unwrap()),
+        }
+    }
 }
 
 fn model(app: &App) -> Model {
+    let args = Cli::parse();
+    println!("pattern: {:?}", args.config);
     let _window = app.new_window().view(view).build();
-    Model {
-        _window,
-        random_seed: (random_f32() * 100000.0) as u64,
-    }
+    ModelBuilder::new()
+        .random_seed(args.seed)
+        .background(args.background)
+        .tree(args.tree)
+        .build()
+}
+
+#[derive(Parser)]
+struct Cli {
+    #[arg(short, long, value_name = "FILE")]
+    config: Option<std::path::PathBuf>,
+    #[arg(short, long)]
+    seed: Option<u64>,
+    #[arg(short, long)]
+    background: Option<String>,
+    #[arg(short, long)]
+    tree: Option<String>,
 }
 
 struct BoundaryNode {
@@ -28,7 +99,6 @@ struct BoundaryNode {
     angle: f32,
 }
 
-// let next_point = (Vec2::from_angle(base.angle) * length) + base.point;
 impl BoundaryNode {
     fn grow(&self, rng: &mut StdRng) -> Option<BoundaryNode> {
         let new_point = (Vec2::from_angle(self.angle) * self.length) + self.point;
@@ -97,8 +167,12 @@ fn view(app: &App, _model: &Model) {
         }
         // let points = branch.iter().map(|node| node.point);
         // draw.polyline().weight(1.0).points(points)
-        draw.polygon().color(YELLOW).points(points);
+        draw.polygon().color(_model.tree).points(points);
         // draw.polyline().weight(5.0).points(points).color(RED);
+        // Shadow
+        // Shadow with transparency
+        // Stepped shadows
+        // Offset shadows
     }
-    draw.background().color(PLUM);
+    draw.background().color(_model.background);
 }
