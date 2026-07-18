@@ -117,8 +117,8 @@ struct BoundaryNode {
 impl BoundaryNode {
     fn grow(&self, rng: &mut StdRng) -> Option<BoundaryNode> {
         let new_point = (Vec2::from_angle(self.angle) * self.length) + self.point;
-        let new_size = self.size - 1.0;
-        if new_size < 5.0 {
+        let new_size = self.size - 1.7;
+        if new_size < 1.0 {
             return None;
         }
         let new_angle = self.angle + rng.random_range(-0.4..0.4);
@@ -131,7 +131,7 @@ impl BoundaryNode {
     }
 
     fn diverge(&self, rng: &mut StdRng) -> BoundaryNode {
-        let new_angle = self.angle + rng.random_range(-0.4..0.4);
+        let new_angle = self.angle + rng.random_range(-0.6..0.6);
         BoundaryNode {
             point: self.point,
             size: self.size,
@@ -151,10 +151,14 @@ fn branch_points(branch: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Vec2> {
         points.push_front(start.point + (shell * (start.size + offset)));
         points.push_back(start.point + (shell * (start.size + offset) * -1.0));
     }
-    for w in branch.windows(2) {
+    for (i, w) in branch.windows(2).enumerate() {
         let shell = Vec2::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
-        points.push_front(w[1].point + (shell * (w[1].size + offset)));
-        points.push_back(w[1].point + (shell * (w[1].size + offset) * -1.0));
+        let mut cap = Vec2::ZERO;
+        if i == branch.len() - 2 {
+            cap = Vec2::from_angle((w[0].angle + w[1].angle) / 2.0).normalize() * offset;
+        }
+        points.push_front(w[1].point + cap + (shell * (w[1].size + offset)));
+        points.push_back(w[1].point + cap + (shell * (w[1].size + offset) * -1.0));
     }
     points
 }
@@ -165,9 +169,9 @@ fn view(app: &App, model: &Model) {
     let draw = app.draw();
 
     let root = BoundaryNode {
-        point: pt2(rng.random_range(win.left()..win.right()), win.bottom()),
+        point: win.mid_bottom(),
         size: 32.0,
-        length: 40.0,
+        length: 60.0,
         angle: PI / 2.0,
     };
     let mut boundary: VecDeque<BoundaryNode> = VecDeque::new();
@@ -189,7 +193,7 @@ fn view(app: &App, model: &Model) {
                 Some(x) => x,
                 None => break,
             };
-            if rng.random_ratio(1, 10) {
+            if rng.random_ratio(1, 5) {
                 boundary.push_back(curr.diverge(&mut rng));
             }
             branch.push(curr);
