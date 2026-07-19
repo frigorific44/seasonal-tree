@@ -7,12 +7,13 @@ use nannou::rand::{RngExt, SeedableRng};
 
 // TODO: Config with TOML.
 fn main() {
-    nannou::app(model).update(update).run();
+    nannou::app(model).run();
 }
 
 #[derive(Debug)]
 struct Model {
     // _window: Entity,
+    output: Option<std::path::PathBuf>,
     random_seed: u64,
     background: Srgba,
     tree: Srgba,
@@ -21,6 +22,7 @@ struct Model {
 }
 
 struct ModelBuilder {
+    output: Option<std::path::PathBuf>,
     random_seed: Option<u64>,
     background: Option<Srgba>,
     tree: Option<Srgba>,
@@ -30,11 +32,19 @@ struct ModelBuilder {
 impl ModelBuilder {
     fn new() -> Self {
         Self {
+            output: None,
             random_seed: None,
             background: None,
             tree: None,
             shadow: None,
         }
+    }
+
+    fn output(mut self, output: Option<std::path::PathBuf>) -> Self {
+        if output.is_some() {
+            self.output = output;
+        }
+        self
     }
 
     fn random_seed(mut self, random_seed: Option<u64>) -> Self {
@@ -73,6 +83,7 @@ impl ModelBuilder {
 
     fn build(self) -> Model {
         Model {
+            output: self.output,
             random_seed: self.random_seed.unwrap_or((random_f32() * 100000.0) as u64),
             background: self.background.unwrap_or(Srgba::hex("#75d3e8").unwrap()),
             tree: self.tree.unwrap_or(Srgba::hex("#ffffff").unwrap()),
@@ -86,6 +97,7 @@ fn model(app: &App) -> Model {
     println!("pattern: {:?}", args.config);
     app.new_window().view(view).build();
     ModelBuilder::new()
+        .output(args.out)
         .random_seed(args.seed)
         .background(args.bg)
         .tree(args.tree)
@@ -95,8 +107,10 @@ fn model(app: &App) -> Model {
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(short, long, value_name = "FILE")]
+    #[arg(short, long, value_name = "CONFIG_FILE")]
     config: Option<std::path::PathBuf>,
+    #[arg(short, long, value_name = "OUTPUT_FILE")]
+    out: Option<std::path::PathBuf>,
     #[arg(short, long)]
     seed: Option<u64>,
     #[arg(long)]
@@ -140,8 +154,6 @@ impl BoundaryNode {
         }
     }
 }
-
-fn update(_app: &App, _model: &mut Model) {}
 
 fn branch_points(branch: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Vec2> {
     let mut points: VecDeque<Vec2> = VecDeque::new();
@@ -218,4 +230,7 @@ fn view(app: &App, model: &Model) {
         // Offset shadows
     }
     draw.background().color(model.background);
+    if let Some(output_path) = &model.output {
+        app.main_window().save_screenshot(output_path.clone());
+    }
 }
