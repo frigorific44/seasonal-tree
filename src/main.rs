@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 
 use clap::Parser;
-use nannou::prelude::*;
+use hex_color::HexColor;
+use nannou::prelude::{App, PI, Srgba, Vec2, pt3, random_f32};
 use nannou::rand::rngs::StdRng;
 use nannou::rand::{RngExt, SeedableRng};
 
@@ -10,23 +11,48 @@ fn main() {
     nannou::app(model).run();
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl Color {
+    fn rgb(r: u8, g: u8, b: u8) -> Color {
+        Color { r, g, b }
+    }
+}
+
+impl From<HexColor> for Color {
+    fn from(value: HexColor) -> Self {
+        Color::rgb(value.r, value.g, value.b)
+    }
+}
+
+impl From<Color> for Srgba {
+    fn from(value: Color) -> Self {
+        Srgba::rgb_u8(value.r, value.g, value.b)
+    }
+}
+
 #[derive(Debug)]
 struct Model {
     // _window: Entity,
     output: Option<std::path::PathBuf>,
     random_seed: u64,
-    background: Srgba,
-    tree: Srgba,
-    shadow: Srgba,
+    background: Color,
+    tree: Color,
+    shadow: Color,
     // leaves: Srgba,
 }
 
 struct ModelBuilder {
     output: Option<std::path::PathBuf>,
     random_seed: Option<u64>,
-    background: Option<Srgba>,
-    tree: Option<Srgba>,
-    shadow: Option<Srgba>,
+    background: Option<Color>,
+    tree: Option<Color>,
+    shadow: Option<Color>,
 }
 
 impl ModelBuilder {
@@ -55,27 +81,27 @@ impl ModelBuilder {
     }
 
     fn background(mut self, background: Option<String>) -> Self {
-        if let Some(color) = background {
-            if let Ok(background) = Srgba::hex(color) {
-                self.background = Some(background);
+        if let Some(color_str) = background {
+            if let Ok(background) = HexColor::parse_rgb(&color_str) {
+                self.background = Some(background.into());
             }
         }
         self
     }
 
     fn tree(mut self, tree: Option<String>) -> Self {
-        if let Some(color) = tree {
-            if let Ok(tree) = Srgba::hex(color) {
-                self.tree = Some(tree);
+        if let Some(color_str) = tree {
+            if let Ok(tree) = HexColor::parse_rgb(&color_str) {
+                self.tree = Some(tree.into());
             }
         }
         self
     }
 
     fn shadow(mut self, shadow: Option<String>) -> Self {
-        if let Some(color) = shadow {
-            if let Ok(shadow) = Srgba::hex(color) {
-                self.shadow = Some(shadow);
+        if let Some(color_str) = shadow {
+            if let Ok(shadow) = HexColor::parse_rgb(&color_str) {
+                self.shadow = Some(shadow.into());
             }
         }
         self
@@ -85,9 +111,9 @@ impl ModelBuilder {
         Model {
             output: self.output,
             random_seed: self.random_seed.unwrap_or((random_f32() * 100000.0) as u64),
-            background: self.background.unwrap_or(Srgba::hex("#75d3e8").unwrap()),
-            tree: self.tree.unwrap_or(Srgba::hex("#ffffff").unwrap()),
-            shadow: self.tree.unwrap_or(Srgba::hex("#3c84ac").unwrap()),
+            background: self.background.unwrap_or(Color::rgb(117, 211, 232)),
+            tree: self.tree.unwrap_or(Color::rgb(255, 255, 255)),
+            shadow: self.shadow.unwrap_or(Color::rgb(60, 132, 172)),
         }
     }
 }
@@ -220,16 +246,16 @@ fn view(app: &App, model: &Model) {
         }
         draw.translate(pt3(0.0, 0.0, 0.0))
             .polygon()
-            .color(model.shadow)
+            .color(Srgba::from(model.shadow))
             .points(branch_points(&branch, 2.0));
         draw.polygon()
-            .color(model.tree)
+            .color(Srgba::from(model.tree))
             .points(branch_points(&branch, 0.0));
         // Shadow with transparency
         // Stepped shadows
         // Offset shadows
     }
-    draw.background().color(model.background);
+    draw.background().color(Srgba::from(model.background));
     if let Some(output_path) = &model.output {
         app.main_window().save_screenshot(output_path.clone());
     }
