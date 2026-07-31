@@ -1,22 +1,19 @@
+use crate::point::Point;
 use std::collections::VecDeque;
 
 use clap::Parser;
 use hex_color::HexColor;
-use nannou::prelude::{App, Srgba, Vec2, pt3};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
+use tiny_skia::Pixmap;
+
+pub mod point;
 
 const PI: f32 = 3.1415926535897932384626433;
 
 // TODO: Config with TOML.
 fn main() {
-    nannou::app(model).run();
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Point {
-    x: f32,
-    y: f32,
+    view(&model());
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,9 +35,9 @@ impl From<HexColor> for Color {
     }
 }
 
-impl From<Color> for Srgba {
+impl From<Color> for tiny_skia::Color {
     fn from(value: Color) -> Self {
-        Srgba::rgb_u8(value.r, value.g, value.b)
+        tiny_skia::Color::from_rgba8(value.r, value.g, value.b, 255)
     }
 }
 
@@ -126,10 +123,9 @@ impl ModelBuilder {
     }
 }
 
-fn model(app: &App) -> Model {
+fn model() -> Model {
     let args = Cli::parse();
     println!("pattern: {:?}", args.config);
-    app.new_window().view(view).build();
     ModelBuilder::new()
         .output(args.out)
         .random_seed(args.seed)
@@ -156,7 +152,7 @@ struct Cli {
 }
 
 struct BoundaryNode {
-    point: Vec2,
+    point: Point,
     size: f32,
     length: f32,
     angle: f32,
@@ -164,7 +160,7 @@ struct BoundaryNode {
 
 impl BoundaryNode {
     fn grow(&self, rng: &mut StdRng) -> Option<BoundaryNode> {
-        let new_point = (Vec2::from_angle(self.angle) * self.length) + self.point;
+        let new_point = (Point::from_angle(self.angle) * self.length) + self.point;
         let new_size = self.size - 1.7;
         if new_size < 1.0 {
             return None;
@@ -189,19 +185,19 @@ impl BoundaryNode {
     }
 }
 
-fn branch_points(branch: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Vec2> {
-    let mut points: VecDeque<Vec2> = VecDeque::new();
+fn branch_points(branch: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Point> {
+    let mut points: VecDeque<Point> = VecDeque::new();
 
     if let Some(start) = branch.first() {
-        let shell = Vec2::from_angle(start.angle + (PI / 2.0)).normalize();
+        let shell = Point::from_angle(start.angle + (PI / 2.0)).normalize();
         points.push_front(start.point + (shell * (start.size + offset)));
         points.push_back(start.point + (shell * (start.size + offset) * -1.0));
     }
     for (i, w) in branch.windows(2).enumerate() {
-        let shell = Vec2::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
-        let mut cap = Vec2::ZERO;
+        let shell = Point::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
+        let mut cap = Point::ZERO;
         if i == branch.len() - 2 {
-            cap = Vec2::from_angle((w[0].angle + w[1].angle) / 2.0).normalize() * offset;
+            cap = Point::from_angle((w[0].angle + w[1].angle) / 2.0).normalize() * offset;
         }
         points.push_front(w[1].point + cap + (shell * (w[1].size + offset)));
         points.push_back(w[1].point + cap + (shell * (w[1].size + offset) * -1.0));
@@ -209,21 +205,24 @@ fn branch_points(branch: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Vec2> {
     points
 }
 
-fn view(app: &App, model: &Model) {
-    let win = app.window_rect();
+fn view(model: &Model) {
     let mut rng: StdRng;
     if let Some(seed) = model.random_seed {
         rng = StdRng::seed_from_u64(seed)
     } else {
         rng = rand::make_rng()
     }
-    let draw = app.draw();
+    let width: u32 = 1920;
+    let height: u32 = 1080;
+    let mut pixmap = Pixmap::new(width, height).unwrap();
+
+    pixmap.fill(model.background.into());
 
     let root = BoundaryNode {
-        point: win.mid_bottom(),
+        point: Point::new((width / 2) as f32, (1080) as f32),
         size: 32.0,
         length: 60.0,
-        angle: PI / 2.0,
+        angle: -PI / 2.0,
     };
     let mut boundary: VecDeque<BoundaryNode> = VecDeque::new();
     boundary.push_back(root);
@@ -257,19 +256,48 @@ fn view(app: &App, model: &Model) {
         if branch.len() < 2 {
             continue;
         }
-        draw.translate(pt3(0.0, 0.0, 0.0))
-            .polygon()
-            .color(Srgba::from(model.shadow))
-            .points(branch_points(&branch, 2.0));
-        draw.polygon()
-            .color(Srgba::from(model.tree))
-            .points(branch_points(&branch, 0.0));
-        // Shadow with transparency
-        // Stepped shadows
-        // Offset shadows
+
+        let mut shadow_pb = tiny_skia::PathBuilder::new();
+        let mut shadow_branch = branch_points(&branch, 2.0);
+        if let Some(first) = shadow_branch.pop_front() {
+            shadow_pb.move_to(first.x, first.y);
+        }
+        for p in shadow_branch {
+            shadow_pb.line_to(p.x, p.y);
+        }
+        shadow_pb.close();
+        let mut shadow_paint = tiny_skia::Paint::default();
+        shadow_paint.set_color(model.shadow.into());
+        shadow_paint.anti_alias = true;
+        pixmap.fill_path(
+            &shadow_pb.finish().unwrap(),
+            &shadow_paint,
+            tiny_skia::FillRule::Winding,
+            tiny_skia::Transform::from_translate(0.0, 0.0),
+            None,
+        );
+
+        let mut tree_pb = tiny_skia::PathBuilder::new();
+        let mut tree_branch = branch_points(&branch, 0.0);
+        if let Some(first) = tree_branch.pop_front() {
+            tree_pb.move_to(first.x, first.y);
+        }
+        for p in tree_branch {
+            tree_pb.line_to(p.x, p.y);
+        }
+        tree_pb.close();
+        let mut tree_paint = tiny_skia::Paint::default();
+        tree_paint.set_color(model.tree.into());
+        tree_paint.anti_alias = true;
+        pixmap.fill_path(
+            &tree_pb.finish().unwrap(),
+            &tree_paint,
+            tiny_skia::FillRule::Winding,
+            tiny_skia::Transform::from_translate(0.0, 0.0),
+            None,
+        );
     }
-    draw.background().color(Srgba::from(model.background));
     if let Some(output_path) = &model.output {
-        app.main_window().save_screenshot(output_path.clone());
+        pixmap.save_png(output_path.clone()).unwrap();
     }
 }
