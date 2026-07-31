@@ -41,9 +41,17 @@ impl From<Color> for tiny_skia::Color {
     }
 }
 
+impl<'a> From<Color> for tiny_skia::Paint<'a> {
+    fn from(value: Color) -> Self {
+        let mut paint: tiny_skia::Paint = tiny_skia::Paint::default();
+        paint.set_color(value.into());
+        paint.anti_alias = true;
+        paint
+    }
+}
+
 #[derive(Debug)]
 struct Model {
-    // _window: Entity,
     output: Option<std::path::PathBuf>,
     random_seed: Option<u64>,
     background: Color,
@@ -227,7 +235,6 @@ fn view(model: &Model) {
     let mut boundary: VecDeque<BoundaryNode> = VecDeque::new();
     boundary.push_back(root);
     let mut branches: Vec<Vec<BoundaryNode>> = Vec::new();
-    // If this handles nodes added during, I'll be grateful.
     loop {
         //TODO: Would an iterator work?
         let base = boundary.pop_front();
@@ -266,12 +273,9 @@ fn view(model: &Model) {
             shadow_pb.line_to(p.x, p.y);
         }
         shadow_pb.close();
-        let mut shadow_paint = tiny_skia::Paint::default();
-        shadow_paint.set_color(model.shadow.into());
-        shadow_paint.anti_alias = true;
         pixmap.fill_path(
             &shadow_pb.finish().unwrap(),
-            &shadow_paint,
+            &model.shadow.into(),
             tiny_skia::FillRule::Winding,
             tiny_skia::Transform::from_translate(0.0, 0.0),
             None,
@@ -286,12 +290,9 @@ fn view(model: &Model) {
             tree_pb.line_to(p.x, p.y);
         }
         tree_pb.close();
-        let mut tree_paint = tiny_skia::Paint::default();
-        tree_paint.set_color(model.tree.into());
-        tree_paint.anti_alias = true;
         pixmap.fill_path(
             &tree_pb.finish().unwrap(),
-            &tree_paint,
+            &model.tree.into(),
             tiny_skia::FillRule::Winding,
             tiny_skia::Transform::from_translate(0.0, 0.0),
             None,
