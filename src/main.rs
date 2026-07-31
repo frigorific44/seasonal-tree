@@ -2,9 +2,11 @@ use std::collections::VecDeque;
 
 use clap::Parser;
 use hex_color::HexColor;
-use nannou::prelude::{App, PI, Srgba, Vec2, pt3};
+use nannou::prelude::{App, Srgba, Vec2, pt3};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
+
+const PI: f32 = 3.1415926535897932384626433;
 
 // TODO: Config with TOML.
 fn main() {
