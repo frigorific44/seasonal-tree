@@ -2,13 +2,19 @@ use std::collections::VecDeque;
 
 use clap::Parser;
 use hex_color::HexColor;
-use nannou::prelude::{App, PI, Srgba, Vec2, pt3, random_f32};
-use nannou::rand::rngs::StdRng;
-use nannou::rand::{RngExt, SeedableRng};
+use nannou::prelude::{App, PI, Srgba, Vec2, pt3};
+use rand::rngs::StdRng;
+use rand::{RngExt, SeedableRng};
 
 // TODO: Config with TOML.
 fn main() {
     nannou::app(model).run();
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Point {
+    x: f32,
+    y: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -40,7 +46,7 @@ impl From<Color> for Srgba {
 struct Model {
     // _window: Entity,
     output: Option<std::path::PathBuf>,
-    random_seed: u64,
+    random_seed: Option<u64>,
     background: Color,
     tree: Color,
     shadow: Color,
@@ -110,7 +116,7 @@ impl ModelBuilder {
     fn build(self) -> Model {
         Model {
             output: self.output,
-            random_seed: self.random_seed.unwrap_or((random_f32() * 100000.0) as u64),
+            random_seed: self.random_seed,
             background: self.background.unwrap_or(Color::rgb(117, 211, 232)),
             tree: self.tree.unwrap_or(Color::rgb(255, 255, 255)),
             shadow: self.shadow.unwrap_or(Color::rgb(60, 132, 172)),
@@ -203,7 +209,12 @@ fn branch_points(branch: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Vec2> {
 
 fn view(app: &App, model: &Model) {
     let win = app.window_rect();
-    let mut rng = StdRng::seed_from_u64(model.random_seed);
+    let mut rng: StdRng;
+    if let Some(seed) = model.random_seed {
+        rng = StdRng::seed_from_u64(seed)
+    } else {
+        rng = rand::make_rng()
+    }
     let draw = app.draw();
 
     let root = BoundaryNode {
