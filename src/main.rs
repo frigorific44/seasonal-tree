@@ -1,3 +1,4 @@
+use crate::color::Color;
 use crate::point::Point;
 use std::collections::VecDeque;
 
@@ -7,6 +8,7 @@ use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use tiny_skia::Pixmap;
 
+pub mod color;
 pub mod point;
 
 const PI: f32 = 3.1415926535897932384626433;
@@ -14,40 +16,6 @@ const PI: f32 = 3.1415926535897932384626433;
 // TODO: Config with TOML.
 fn main() {
     view(&model());
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl Color {
-    fn rgb(r: u8, g: u8, b: u8) -> Color {
-        Color { r, g, b }
-    }
-}
-
-impl From<HexColor> for Color {
-    fn from(value: HexColor) -> Self {
-        Color::rgb(value.r, value.g, value.b)
-    }
-}
-
-impl From<Color> for tiny_skia::Color {
-    fn from(value: Color) -> Self {
-        tiny_skia::Color::from_rgba8(value.r, value.g, value.b, 255)
-    }
-}
-
-impl<'a> From<Color> for tiny_skia::Paint<'a> {
-    fn from(value: Color) -> Self {
-        let mut paint: tiny_skia::Paint = tiny_skia::Paint::default();
-        paint.set_color(value.into());
-        paint.anti_alias = true;
-        paint
-    }
 }
 
 #[derive(Debug)]
