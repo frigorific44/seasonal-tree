@@ -1,3 +1,4 @@
+use crate::color::Color;
 use crate::model::{Model, model};
 use crate::point::Point;
 use std::collections::VecDeque;
@@ -15,6 +16,10 @@ const PI: f32 = 3.1415926535897932384626433;
 // TODO: Config with TOML.
 fn main() {
     view(&model());
+}
+
+trait Drawable {
+    fn compose(&self, surface: &mut Pixmap);
 }
 
 struct BoundaryNode {
@@ -51,18 +56,60 @@ impl BoundaryNode {
     }
 }
 
-fn branch_points(branch: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Point> {
+struct Branch {
+    nodes: Vec<BoundaryNode>,
+    translation: Point,
+    offset: f32,
+    color: Color,
+}
+
+impl Branch {
+    fn new(nodes: Vec<BoundaryNode>) -> Self {
+        Branch {
+            nodes,
+            translation: Point::new(0.0, 0.0),
+            offset: 0.0,
+            color: Color::rgb(0, 0, 0),
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.nodes.len()
+    }
+}
+impl Drawable for Branch {
+    fn compose(&self, surface: &mut Pixmap) {
+        let mut branch_pb = tiny_skia::PathBuilder::new();
+        let mut branch_branch = branch_points(&self.nodes, self.offset);
+        if let Some(first) = branch_branch.pop_front() {
+            branch_pb.move_to(first.x, first.y);
+        }
+        for p in branch_branch {
+            branch_pb.line_to(p.x, p.y);
+        }
+        branch_pb.close();
+        surface.fill_path(
+            &branch_pb.finish().unwrap(),
+            &self.color.into(),
+            tiny_skia::FillRule::Winding,
+            tiny_skia::Transform::from_translate(self.translation.x, self.translation.y),
+            None,
+        );
+    }
+}
+
+fn branch_points(nodes: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Point> {
     let mut points: VecDeque<Point> = VecDeque::new();
 
-    if let Some(start) = branch.first() {
+    if let Some(start) = nodes.first() {
         let shell = Point::from_angle(start.angle + (PI / 2.0)).normalize();
         points.push_front(start.point + (shell * (start.size + offset)));
         points.push_back(start.point + (shell * (start.size + offset) * -1.0));
     }
-    for (i, w) in branch.windows(2).enumerate() {
+    for (i, w) in nodes.windows(2).enumerate() {
         let shell = Point::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
         let mut cap = Point::ZERO;
-        if i == branch.len() - 2 {
+        if i == nodes.len() - 2 {
             cap = Point::from_angle((w[0].angle + w[1].angle) / 2.0).normalize() * offset;
         }
         points.push_front(w[1].point + cap + (shell * (w[1].size + offset)));
@@ -85,14 +132,14 @@ fn view(model: &Model) {
     pixmap.fill(model.background.into());
 
     let root = BoundaryNode {
-        point: Point::new((width / 2) as f32, (1080) as f32),
+        point: Point::new((width / 2) as f32, (height) as f32),
         size: 32.0,
         length: 60.0,
         angle: -PI / 2.0,
     };
     let mut boundary: VecDeque<BoundaryNode> = VecDeque::new();
     boundary.push_back(root);
-    let mut branches: Vec<Vec<BoundaryNode>> = Vec::new();
+    let mut branches: Vec<Branch> = Vec::new();
     loop {
         //TODO: Would an iterator work?
         let base = boundary.pop_front();
@@ -101,7 +148,7 @@ fn view(model: &Model) {
             None => break,
         };
         // Branch preparation.
-        let mut branch: Vec<BoundaryNode> = Vec::new();
+        let mut branch_nodes: Vec<BoundaryNode> = Vec::new();
         // Branch generation.
         loop {
             let next = match curr.grow(&mut rng) {
@@ -111,50 +158,23 @@ fn view(model: &Model) {
             if rng.random_ratio(1, 5) {
                 boundary.push_back(curr.diverge(&mut rng));
             }
-            branch.push(curr);
+            branch_nodes.push(curr);
             curr = next;
         }
 
-        branches.push(branch);
+        branches.push(Branch::new(branch_nodes));
     }
-    for branch in branches.iter().rev() {
+    for branch in branches.iter_mut().rev() {
         if branch.len() < 2 {
             continue;
         }
+        branch.offset = 2.0;
+        branch.color = model.shadow;
+        branch.compose(&mut pixmap);
 
-        let mut shadow_pb = tiny_skia::PathBuilder::new();
-        let mut shadow_branch = branch_points(&branch, 2.0);
-        if let Some(first) = shadow_branch.pop_front() {
-            shadow_pb.move_to(first.x, first.y);
-        }
-        for p in shadow_branch {
-            shadow_pb.line_to(p.x, p.y);
-        }
-        shadow_pb.close();
-        pixmap.fill_path(
-            &shadow_pb.finish().unwrap(),
-            &model.shadow.into(),
-            tiny_skia::FillRule::Winding,
-            tiny_skia::Transform::from_translate(0.0, 0.0),
-            None,
-        );
-
-        let mut tree_pb = tiny_skia::PathBuilder::new();
-        let mut tree_branch = branch_points(&branch, 0.0);
-        if let Some(first) = tree_branch.pop_front() {
-            tree_pb.move_to(first.x, first.y);
-        }
-        for p in tree_branch {
-            tree_pb.line_to(p.x, p.y);
-        }
-        tree_pb.close();
-        pixmap.fill_path(
-            &tree_pb.finish().unwrap(),
-            &model.tree.into(),
-            tiny_skia::FillRule::Winding,
-            tiny_skia::Transform::from_translate(0.0, 0.0),
-            None,
-        );
+        branch.offset = 0.0;
+        branch.color = model.tree;
+        branch.compose(&mut pixmap);
     }
     if let Some(output_path) = &model.output {
         pixmap.save_png(output_path.clone()).unwrap();
