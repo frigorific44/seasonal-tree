@@ -1,6 +1,9 @@
+use std::fs;
+
 use crate::color::Color;
 use clap::Parser;
 use hex_color::HexColor;
+use serde::Deserialize;
 
 #[derive(Debug)]
 pub struct Model {
@@ -12,6 +15,7 @@ pub struct Model {
     // leaves: Srgba,
 }
 
+#[derive(Debug, Deserialize)]
 struct ModelBuilder {
     output: Option<std::path::PathBuf>,
     random_seed: Option<u64>,
@@ -86,7 +90,17 @@ impl ModelBuilder {
 pub fn model() -> Model {
     let args = Cli::parse();
     println!("pattern: {:?}", args.config);
-    ModelBuilder::new()
+    let mut builder = ModelBuilder::new();
+    if let Some(config) = args.config {
+        match fs::read_to_string(config) {
+            Ok(content) => match toml::from_str(&content) {
+                Ok(config) => builder = config,
+                Err(e) => println!("error parsing config: {e:?}"),
+            },
+            Err(e) => println!("error reading file: {e:?}"),
+        }
+    }
+    builder
         .output(args.out)
         .random_seed(args.seed)
         .background(args.bg)

@@ -1,4 +1,8 @@
-#[derive(Debug, Clone, Copy)]
+use hex_color::HexColor;
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(from = "HexColor")]
 pub struct Color {
     r: u8,
     g: u8,
