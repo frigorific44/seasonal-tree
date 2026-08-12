@@ -80,11 +80,27 @@ impl Branch {
 impl Drawable for Branch {
     fn compose(&self, surface: &mut Pixmap) {
         let mut branch_pb = tiny_skia::PathBuilder::new();
-        let mut branch_branch = branch_points(&self.nodes, self.offset);
-        if let Some(first) = branch_branch.pop_front() {
+
+        let mut points: VecDeque<Point> = VecDeque::new();
+        if let Some(start) = self.nodes.first() {
+            let shell = Point::from_angle(start.angle + (PI / 2.0)).normalize();
+            points.push_front(start.point + (shell * (start.size + self.offset)));
+            points.push_back(start.point + (shell * (start.size + self.offset) * -1.0));
+        }
+        for (i, w) in self.nodes.windows(2).enumerate() {
+            let shell = Point::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
+            let mut cap = Point::ZERO;
+            if i == self.nodes.len() - 2 {
+                cap = Point::from_angle((w[0].angle + w[1].angle) / 2.0).normalize() * self.offset;
+            }
+            points.push_front(w[1].point + cap + (shell * (w[1].size + self.offset)));
+            points.push_back(w[1].point + cap + (shell * (w[1].size + self.offset) * -1.0));
+        }
+
+        if let Some(first) = points.pop_front() {
             branch_pb.move_to(first.x, first.y);
         }
-        for p in branch_branch {
+        for p in points {
             branch_pb.line_to(p.x, p.y);
         }
         branch_pb.close();
@@ -96,26 +112,6 @@ impl Drawable for Branch {
             None,
         );
     }
-}
-
-fn branch_points(nodes: &Vec<BoundaryNode>, offset: f32) -> VecDeque<Point> {
-    let mut points: VecDeque<Point> = VecDeque::new();
-
-    if let Some(start) = nodes.first() {
-        let shell = Point::from_angle(start.angle + (PI / 2.0)).normalize();
-        points.push_front(start.point + (shell * (start.size + offset)));
-        points.push_back(start.point + (shell * (start.size + offset) * -1.0));
-    }
-    for (i, w) in nodes.windows(2).enumerate() {
-        let shell = Point::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
-        let mut cap = Point::ZERO;
-        if i == nodes.len() - 2 {
-            cap = Point::from_angle((w[0].angle + w[1].angle) / 2.0).normalize() * offset;
-        }
-        points.push_front(w[1].point + cap + (shell * (w[1].size + offset)));
-        points.push_back(w[1].point + cap + (shell * (w[1].size + offset) * -1.0));
-    }
-    points
 }
 
 fn view(model: &Model) {
