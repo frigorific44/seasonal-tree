@@ -84,8 +84,16 @@ impl Drawable for Branch {
         let mut points: VecDeque<Point> = VecDeque::new();
         if let Some(start) = self.nodes.first() {
             let shell = Point::from_angle(start.angle + (PI / 2.0)).normalize();
-            points.push_front(start.point + (shell * (start.size + self.offset)));
-            points.push_back(start.point + (shell * (start.size + self.offset) * -1.0));
+            let left = start.point + (shell * (start.size + self.offset));
+            let right = start.point + (shell * (start.size + self.offset) * -1.0);
+            let l_a = left;
+            let l_b = left;
+            let r_a = right;
+            let r_b = right;
+            points.push_front(l_b);
+            points.push_front(l_a);
+            points.push_back(r_b);
+            points.push_back(r_a);
         }
         for (i, w) in self.nodes.windows(2).enumerate() {
             let shell = Point::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
@@ -93,15 +101,28 @@ impl Drawable for Branch {
             if i == self.nodes.len() - 2 {
                 cap = Point::from_angle((w[0].angle + w[1].angle) / 2.0).normalize() * self.offset;
             }
-            points.push_front(w[1].point + cap + (shell * (w[1].size + self.offset)));
-            points.push_back(w[1].point + cap + (shell * (w[1].size + self.offset) * -1.0));
+            let left = w[1].point + cap + (shell * (w[1].size + self.offset));
+            let right = w[1].point + cap + (shell * (w[1].size + self.offset) * -1.0);
+            let l_a = left;
+            let l_b = left;
+            let l_c = left;
+            let r_a = right;
+            let r_b = right;
+            let r_c = right;
+            points.push_front(l_b);
+            points.push_front(l_a);
+            points.push_front(l_c);
+            points.push_back(r_b);
+            points.push_back(r_a);
+            points.push_back(r_c);
         }
 
         if let Some(first) = points.pop_front() {
             branch_pb.move_to(first.x, first.y);
         }
-        for p in points {
-            branch_pb.line_to(p.x, p.y);
+        points.make_contiguous();
+        for c in points.as_slices().0.chunks(3) {
+            branch_pb.cubic_to(c[0].x, c[0].y, c[1].x, c[1].y, c[2].x, c[2].y);
         }
         branch_pb.close();
         surface.fill_path(
