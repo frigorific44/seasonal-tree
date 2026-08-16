@@ -191,14 +191,17 @@ fn view(model: &Model) {
         branches.push(Branch::new(branch_nodes));
     }
     // TODO: Uniform may be fast. Should create custom rng object to contain.
-    let displacement_direction = rng.random_range(0.0..PI);
-    let displacement =
-        Point::from_angle(displacement_direction).normalize() * rng.random_range(0.0..1.0);
+    let shadow_translation = if model.shadow_translation_magnitude > 0.0 {
+        Point::from_angle(rng.random_range(0.0..PI)).normalize()
+            * rng.random_range(0.0..model.shadow_translation_magnitude)
+    } else {
+        Point::ZERO
+    };
     for branch in branches.iter_mut().rev() {
         if branch.len() < 2 {
             continue;
         }
-        branch.translation = displacement;
+        branch.translation = shadow_translation;
         branch.smoothness = model.smoothness;
         branch.offset = model.shadow_offset;
         branch.color = model.shadow;

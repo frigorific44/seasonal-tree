@@ -14,6 +14,7 @@ pub struct Model {
     pub shadow: Color,
     pub smoothness: f32,
     pub shadow_offset: f32,
+    pub shadow_translation_magnitude: f32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -25,6 +26,7 @@ struct ModelBuilder {
     shadow: Option<Color>,
     smoothness: Option<f32>,
     shadow_offset: Option<f32>,
+    shadow_translation_magnitude: Option<f32>,
 }
 
 impl ModelBuilder {
@@ -37,6 +39,7 @@ impl ModelBuilder {
             shadow: None,
             smoothness: None,
             shadow_offset: None,
+            shadow_translation_magnitude: None,
         }
     }
 
@@ -95,6 +98,13 @@ impl ModelBuilder {
         self
     }
 
+    fn shadow_translation_magnitude(mut self, shadow_translation_magnitude: Option<f32>) -> Self {
+        if let Some(offset) = shadow_translation_magnitude {
+            self.shadow_translation_magnitude = Some(offset);
+        }
+        self
+    }
+
     fn build(self) -> Model {
         Model {
             output: self.output,
@@ -104,6 +114,7 @@ impl ModelBuilder {
             shadow: self.shadow.unwrap_or(Color::rgb(60, 132, 172)),
             smoothness: self.smoothness.unwrap_or(0.5),
             shadow_offset: self.shadow_offset.unwrap_or(2.0),
+            shadow_translation_magnitude: self.shadow_translation_magnitude.unwrap_or(0.0),
         }
     }
 }
@@ -128,6 +139,7 @@ pub fn model() -> Model {
         .shadow(args.shadow)
         .smoothness(args.smoothness)
         .shadow_offset(args.shadow_offset)
+        .shadow_translation_magnitude(args.shadow_translation_magnitude)
         .build()
 }
 
@@ -149,4 +161,6 @@ struct Cli {
     smoothness: Option<f32>,
     #[arg(long)]
     shadow_offset: Option<f32>,
+    #[arg(long)]
+    shadow_translation_magnitude: Option<f32>,
 }
