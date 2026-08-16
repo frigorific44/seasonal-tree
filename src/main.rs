@@ -81,21 +81,27 @@ impl Drawable for Branch {
     fn compose(&self, surface: &mut Pixmap) {
         let mut branch_pb = tiny_skia::PathBuilder::new();
 
-        let mut points: VecDeque<Point> = VecDeque::new();
-        if let Some(start) = self.nodes.first() {
-            let shell = Point::from_angle(start.angle + (PI / 2.0)).normalize();
-            let left = start.point + (shell * (start.size + self.offset));
-            let right = start.point + (shell * (start.size + self.offset) * -1.0);
-            let l_a = left;
-            let l_b = left;
-            let r_a = right;
-            let r_b = right;
-            points.push_front(l_b);
-            points.push_front(l_a);
-            points.push_back(r_b);
-            points.push_back(r_a);
-        }
+        let first_point: Point;
+        let mut points: Vec<Point> = Vec::new();
+        let mut tail: Vec<Point> = Vec::new();
+
+        let start = self.nodes.first().unwrap();
+        // Points
+        let shell = Point::from_angle(start.angle + (PI / 2.0)).normalize();
+        let left = start.point + (shell * (start.size + self.offset));
+        let right = start.point + (shell * (start.size + self.offset) * -1.0);
+        // Bezier Points
+        let tangent = Point::from_angle(start.angle).normalize();
+        first_point = left;
+        let r_a = right;
+        let l_b = left - (tangent * (start.length * 0.3));
+        let r_b = right - (tangent * (start.length * 0.3));
+        points.push(l_b);
+        tail.push(r_a);
+        tail.push(r_b);
+
         for (i, w) in self.nodes.windows(2).enumerate() {
+            // Points
             let shell = Point::from_angle((w[0].angle + w[1].angle + PI) / 2.0).normalize();
             let mut cap = Point::ZERO;
             if i == self.nodes.len() - 2 {
@@ -103,25 +109,25 @@ impl Drawable for Branch {
             }
             let left = w[1].point + cap + (shell * (w[1].size + self.offset));
             let right = w[1].point + cap + (shell * (w[1].size + self.offset) * -1.0);
+            // Bezier Points
+            let tangent = Point::from_angle((w[0].angle + w[1].angle) / 2.0).normalize();
+            let l_b = left + (tangent * (w[1].length * 0.3));
             let l_a = left;
-            let l_b = left;
-            let l_c = left;
+            let l_c = left - (tangent * (w[1].length * 0.3));
+            let r_b = right + (tangent * (w[1].length * 0.3));
             let r_a = right;
-            let r_b = right;
-            let r_c = right;
-            points.push_front(l_b);
-            points.push_front(l_a);
-            points.push_front(l_c);
-            points.push_back(r_b);
-            points.push_back(r_a);
-            points.push_back(r_c);
+            let r_c = right - (tangent * (w[1].length * 0.3));
+            points.push(l_c);
+            points.push(l_a);
+            points.push(l_b);
+            tail.push(r_c);
+            tail.push(r_a);
+            tail.push(r_b);
         }
+        points.extend(tail.iter().rev());
 
-        if let Some(first) = points.pop_front() {
-            branch_pb.move_to(first.x, first.y);
-        }
-        points.make_contiguous();
-        for c in points.as_slices().0.chunks(3) {
+        branch_pb.move_to(first_point.x, first_point.y);
+        for c in points.chunks(3) {
             branch_pb.cubic_to(c[0].x, c[0].y, c[1].x, c[1].y, c[2].x, c[2].y);
         }
         branch_pb.close();
