@@ -12,7 +12,7 @@ pub struct Model {
     pub background: Color,
     pub tree: Color,
     pub shadow: Color,
-    // leaves: Srgba,
+    pub smoothness: f32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -22,6 +22,7 @@ struct ModelBuilder {
     background: Option<Color>,
     tree: Option<Color>,
     shadow: Option<Color>,
+    smoothness: Option<f32>,
 }
 
 impl ModelBuilder {
@@ -32,6 +33,7 @@ impl ModelBuilder {
             background: None,
             tree: None,
             shadow: None,
+            smoothness: None,
         }
     }
 
@@ -76,6 +78,13 @@ impl ModelBuilder {
         self
     }
 
+    fn smoothness(mut self, smoothness: Option<f32>) -> Self {
+        if let Some(smoothness) = smoothness {
+            self.smoothness = Some(smoothness);
+        }
+        self
+    }
+
     fn build(self) -> Model {
         Model {
             output: self.output,
@@ -83,6 +92,7 @@ impl ModelBuilder {
             background: self.background.unwrap_or(Color::rgb(117, 211, 232)),
             tree: self.tree.unwrap_or(Color::rgb(255, 255, 255)),
             shadow: self.shadow.unwrap_or(Color::rgb(60, 132, 172)),
+            smoothness: self.smoothness.unwrap_or(0.5),
         }
     }
 }
@@ -106,6 +116,7 @@ pub fn model() -> Model {
         .background(args.bg)
         .tree(args.tree)
         .shadow(args.shadow)
+        .smoothness(args.smoothness)
         .build()
 }
 
@@ -123,4 +134,6 @@ struct Cli {
     tree: Option<String>,
     #[arg(long)]
     shadow: Option<String>,
+    #[arg(long)]
+    smoothness: Option<f32>,
 }

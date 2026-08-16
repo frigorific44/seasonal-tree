@@ -12,8 +12,9 @@ pub mod model;
 pub mod point;
 
 const PI: f32 = 3.1415926535897932384626433;
+// TODO: Compute max curve, instead.
+const CTRL_RATIO_MAX: f32 = 0.25;
 
-// TODO: Config with TOML.
 fn main() {
     view(&model());
 }
@@ -61,6 +62,7 @@ struct Branch {
     translation: Point,
     offset: f32,
     color: Color,
+    smoothness: f32,
 }
 
 impl Branch {
@@ -70,6 +72,7 @@ impl Branch {
             translation: Point::new(0.0, 0.0),
             offset: 0.0,
             color: Color::rgb(0, 0, 0),
+            smoothness: 0.5,
         }
     }
 
@@ -94,8 +97,8 @@ impl Drawable for Branch {
         let tangent = Point::from_angle(start.angle).normalize();
         first_point = left;
         let r_a = right;
-        let l_b = left - (tangent * (start.length * 0.3));
-        let r_b = right - (tangent * (start.length * 0.3));
+        let l_b = left - (tangent * (start.length * CTRL_RATIO_MAX * self.smoothness));
+        let r_b = right - (tangent * (start.length * CTRL_RATIO_MAX * self.smoothness));
         points.push(l_b);
         tail.push(r_a);
         tail.push(r_b);
@@ -111,12 +114,12 @@ impl Drawable for Branch {
             let right = w[1].point + cap + (shell * (w[1].size + self.offset) * -1.0);
             // Bezier Points
             let tangent = Point::from_angle((w[0].angle + w[1].angle) / 2.0).normalize();
-            let l_b = left + (tangent * (w[1].length * 0.3));
+            let l_b = left + (tangent * (w[1].length * CTRL_RATIO_MAX * self.smoothness));
             let l_a = left;
-            let l_c = left - (tangent * (w[1].length * 0.3));
-            let r_b = right + (tangent * (w[1].length * 0.3));
+            let l_c = left - (tangent * (w[1].length * CTRL_RATIO_MAX * self.smoothness));
+            let r_b = right + (tangent * (w[1].length * CTRL_RATIO_MAX * self.smoothness));
             let r_a = right;
-            let r_c = right - (tangent * (w[1].length * 0.3));
+            let r_c = right - (tangent * (w[1].length * CTRL_RATIO_MAX * self.smoothness));
             points.push(l_c);
             points.push(l_a);
             points.push(l_b);
@@ -191,6 +194,7 @@ fn view(model: &Model) {
         if branch.len() < 2 {
             continue;
         }
+        branch.smoothness = model.smoothness;
         branch.offset = 2.0;
         branch.color = model.shadow;
         branch.compose(&mut pixmap);
