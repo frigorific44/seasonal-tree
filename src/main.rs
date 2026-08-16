@@ -190,15 +190,21 @@ fn view(model: &Model) {
 
         branches.push(Branch::new(branch_nodes));
     }
+    // TODO: Uniform may be fast. Should create custom rng object to contain.
+    let displacement_direction = rng.random_range(0.0..PI);
+    let displacement =
+        Point::from_angle(displacement_direction).normalize() * rng.random_range(0.0..1.0);
     for branch in branches.iter_mut().rev() {
         if branch.len() < 2 {
             continue;
         }
+        branch.translation = displacement;
         branch.smoothness = model.smoothness;
-        branch.offset = 2.0;
+        branch.offset = model.shadow_offset;
         branch.color = model.shadow;
         branch.compose(&mut pixmap);
 
+        branch.translation = Point::ZERO;
         branch.offset = 0.0;
         branch.color = model.tree;
         branch.compose(&mut pixmap);

@@ -13,6 +13,7 @@ pub struct Model {
     pub tree: Color,
     pub shadow: Color,
     pub smoothness: f32,
+    pub shadow_offset: f32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -23,6 +24,7 @@ struct ModelBuilder {
     tree: Option<Color>,
     shadow: Option<Color>,
     smoothness: Option<f32>,
+    shadow_offset: Option<f32>,
 }
 
 impl ModelBuilder {
@@ -34,6 +36,7 @@ impl ModelBuilder {
             tree: None,
             shadow: None,
             smoothness: None,
+            shadow_offset: None,
         }
     }
 
@@ -85,6 +88,13 @@ impl ModelBuilder {
         self
     }
 
+    fn shadow_offset(mut self, shadow_offset: Option<f32>) -> Self {
+        if let Some(offset) = shadow_offset {
+            self.shadow_offset = Some(offset);
+        }
+        self
+    }
+
     fn build(self) -> Model {
         Model {
             output: self.output,
@@ -93,13 +103,13 @@ impl ModelBuilder {
             tree: self.tree.unwrap_or(Color::rgb(255, 255, 255)),
             shadow: self.shadow.unwrap_or(Color::rgb(60, 132, 172)),
             smoothness: self.smoothness.unwrap_or(0.5),
+            shadow_offset: self.shadow_offset.unwrap_or(2.0),
         }
     }
 }
 
 pub fn model() -> Model {
     let args = Cli::parse();
-    println!("pattern: {:?}", args.config);
     let mut builder = ModelBuilder::new();
     if let Some(config) = args.config {
         match fs::read_to_string(config) {
@@ -117,6 +127,7 @@ pub fn model() -> Model {
         .tree(args.tree)
         .shadow(args.shadow)
         .smoothness(args.smoothness)
+        .shadow_offset(args.shadow_offset)
         .build()
 }
 
@@ -136,4 +147,6 @@ struct Cli {
     shadow: Option<String>,
     #[arg(long)]
     smoothness: Option<f32>,
+    #[arg(long)]
+    shadow_offset: Option<f32>,
 }
