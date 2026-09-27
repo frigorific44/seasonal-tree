@@ -151,8 +151,8 @@ fn view(model: &Model) {
     } else {
         rng = rand::make_rng()
     }
-    let width: u32 = 1920;
-    let height: u32 = 1080;
+    let width: u32 = model.width;
+    let height: u32 = model.height;
     let mut pixmap = Pixmap::new(width, height).unwrap();
 
     pixmap.fill(model.background.into());

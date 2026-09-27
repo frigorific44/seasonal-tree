@@ -8,6 +8,8 @@ use serde::Deserialize;
 #[derive(Debug)]
 pub struct Model {
     pub output: Option<std::path::PathBuf>,
+    pub width: u32,
+    pub height: u32,
     pub random_seed: Option<u64>,
     pub background: Color,
     pub tree: Color,
@@ -20,6 +22,8 @@ pub struct Model {
 #[derive(Debug, Deserialize)]
 struct ModelBuilder {
     output: Option<std::path::PathBuf>,
+    width: Option<u32>,
+    height: Option<u32>,
     random_seed: Option<u64>,
     background: Option<Color>,
     tree: Option<Color>,
@@ -33,6 +37,8 @@ impl ModelBuilder {
     fn new() -> Self {
         Self {
             output: None,
+            width: None,
+            height: None,
             random_seed: None,
             background: None,
             tree: None,
@@ -46,6 +52,20 @@ impl ModelBuilder {
     fn output(mut self, output: Option<std::path::PathBuf>) -> Self {
         if output.is_some() {
             self.output = output;
+        }
+        self
+    }
+
+    fn width(mut self, width: Option<u32>) -> Self {
+        if let Some(w) = width {
+            self.width = Some(w);
+        }
+        self
+    }
+
+    fn height(mut self, height: Option<u32>) -> Self {
+        if let Some(h) = height {
+            self.height = Some(h);
         }
         self
     }
@@ -108,6 +128,8 @@ impl ModelBuilder {
     fn build(self) -> Model {
         Model {
             output: self.output,
+            width: self.width.unwrap_or(1920),
+            height: self.height.unwrap_or(1080),
             random_seed: self.random_seed,
             background: self.background.unwrap_or(Color::rgb(117, 211, 232)),
             tree: self.tree.unwrap_or(Color::rgb(255, 255, 255)),
@@ -133,6 +155,8 @@ pub fn model() -> Model {
     }
     builder
         .output(args.out)
+        .width(args.width)
+        .height(args.height)
         .random_seed(args.seed)
         .background(args.bg)
         .tree(args.tree)
@@ -149,6 +173,10 @@ struct Cli {
     config: Option<std::path::PathBuf>,
     #[arg(short, long, value_name = "OUTPUT_FILE")]
     out: Option<std::path::PathBuf>,
+    #[arg(long)]
+    width: Option<u32>,
+    #[arg(long)]
+    height: Option<u32>,
     #[arg(short, long)]
     seed: Option<u64>,
     #[arg(long)]
